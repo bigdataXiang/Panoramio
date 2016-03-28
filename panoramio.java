@@ -1,6 +1,6 @@
 package com.svail.crawl.panoramio;
-
 import java.util.List;
+import java.util.Vector;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -8,6 +8,7 @@ import org.apache.http.ParseException;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.conn.HttpHostConnectException;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
@@ -15,18 +16,24 @@ import org.apache.http.util.EntityUtils;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.UnknownHostException;
+
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
+import com.mongodb.BasicDBObject;
 import com.mongodb.DB;
+import com.mongodb.DBObject;
 import com.mongodb.Mongo;
+import com.mongodb.MongoException;
 import com.mongodb.gridfs.GridFS;
+import com.mongodb.gridfs.GridFSDBFile;
 import com.mongodb.gridfs.GridFSFile;
 import com.svail.util.FileTool;
 
-public class Panoramio {
+public class PanoramioNew {
 	// http://www.panoramio.com/map/get_panoramas.php?set=full&from=0&to=500&minx=9.74761962890625&miny=9.381322272728047&maxx=17.98736572265625&maxy=11.832406267156314&size=medium&mapfilter=false
 	// 首先抓取非洲地区的图片
 	public static double stepy = 0.5;
@@ -88,26 +95,16 @@ public class Panoramio {
         document.save();  
 		   
     } 
-	public static void getPhotoID(){
-		
-	}
-	
-	public static void main(String[] args) throws Exception {
-
-		Mongo mongo = new Mongo("192.168.6.29", 27017); 
-	    DB db = mongo.getDB("geophoto");  // 数据库名称 
-	    GridFS grid = new GridFS(db );   
-	    
-		double top = 16.467695, left = -15.908203;
-		double bottom = 9.058702, right = 10.59082;
+	public static void fetchDigist(double top,double bottom,double left,double right)
+	{
 		Gson gson = new Gson();
 		
-		for (double x = left; x < right; x += stepx) {
+		for (double x =left; x < right; x += stepx) {
 			for (double y = top; y > bottom; y -= stepy) {
-				String url = "http://www.panoramio.com/map/get_panoramas.php?set=full&from=0&to=500&minx=" + x + "&miny=" + (y - stepy) + "&maxx=" + (x + stepx) + "&maxy=" + y + "&size=medium&mapfilter=false";
+				String url = "http://www.panoramio.com/map/get_panoramas.php?set=full&from=0&to=1000&minx=" + x + "&miny=" + (y - stepy) + "&maxx=" + (x + stepx) + "&maxy=" + y + "&size=medium&mapfilter=false";
 				try {
 					Thread.sleep(10000 * ((int) (Math
-						.max(1, Math.random() * 3))));
+						.max(0.5, Math.random() * 3))));
 				} catch (final InterruptedException e1) {
 					// TODO Auto-generated catch block
 					e1.printStackTrace();
@@ -131,10 +128,11 @@ public class Panoramio {
 		                    System.out.println("Response content length: " + entity.getContentLength());  
 		                    // 打印响应内容    
 		                    String xml = EntityUtils.toString(entity);
-		                    System.out.println("Response content: " + xml); 
+		                    // System.out.println("Response content: " + xml); 
 		                    
 		                    if (xml != null)
 		    				{
+		                    	
 		    					// 创建一个JsonParser
 		    					JsonParser parser = new JsonParser();
 		    			
@@ -152,28 +150,8 @@ public class Panoramio {
 		    							if (sr != null)
 		    							{
 		    								List<GeoPhoto> photos = sr.getPhotos();
-		    								
-		    								for (int n = 0; n < photos.size(); n ++) {
-		    									GeoPhoto photo = photos.get(n);
-		    									
-//在此处修改，先存Photo_id()，再用Photo_id()得到图片的链接  
-		    									FileTool.Dump(photos.get(n).getPhoto_id(), "", "utf-8");
-		    									
-		    									
-		    									
-		    									/*将该信息写入到mongodb数据库
-		    									 * 暂时先不执行这一步，先只获取图片的id；
-		    									 */
-		    								//	archive(photo, grid);
-		    									
-		    									try {
-		    										Thread.sleep(2000 * ((int) (Math
-		    											.max(1, Math.random() * 3))));
-		    									} catch (final InterruptedException e1) {
-		    										// TODO Auto-generated catch block
-		    										e1.printStackTrace();
-		    									}
-		    								}
+		    								if (photos.size() > 0)
+		    									FileTool.Dump(xml, "/home/gir/crawldata/googlephoto/Panoramio.txt", "utf-8");
 		    							}
 		    						}
 		    					}catch (JsonSyntaxException e) {
@@ -181,7 +159,10 @@ public class Panoramio {
 		    						e.printStackTrace();
 		    					}
 		    				}
-		                    
+		                    else
+		                    {
+		                    	FileTool.Dump(url, "/home/gir/crawldata/googlephoto/Panoramio-url.txt", "utf-8");
+		                    }
 		                }  
 		                System.out.println("------------------------------------");  
 		            } finally {  
@@ -189,10 +170,13 @@ public class Panoramio {
 		            }  
 		        } catch (ClientProtocolException e) {  
 		            e.printStackTrace();  
+		            FileTool.Dump(url, "/home/gir/crawldata/googlephoto/Panoramio-url.txt", "utf-8");
 		        } catch (ParseException e) {  
 		            e.printStackTrace();  
+		            FileTool.Dump(url, "/home/gir/crawldata/googlephoto/Panoramio-url.txt", "utf-8");
 		        } catch (IOException e) {  
 		            e.printStackTrace();  
+		            FileTool.Dump(url, "/home/gir/crawldata/googlephoto/Panoramio-url.txt", "utf-8");
 		        } finally {  
 		            // 关闭连接,释放资源    
 		            try {  
@@ -203,5 +187,89 @@ public class Panoramio {
 		        }  
 			}
 		}
+	}
+	
+	public static void fetchData(String digist) {
+		try {
+			Mongo mongo = new Mongo("192.168.6.9", 27017);
+			DB db = mongo.getDB("geophoto");  // 数据库名称
+			GridFS grid = new GridFS(db);
+			double top = 16.467695, left = -15.908203;
+			double bottom = 9.058702, right = 10.59082;
+			Gson gson = new Gson();
+			
+			Vector<String> ls = FileTool.Load(digist, "utf-8");
+			
+			if (ls != null)
+			{
+				for (int n = 0; n < ls.size(); n ++)
+				{
+					JsonParser parser = new JsonParser();
+			    	//通过JsonParser对象可以把json格式的字符串解析成一个JsonElement对象
+			    	try {
+			    		JsonElement el = parser.parse(ls.get(n));
+			    		//把JsonElement对象转换成JsonObject
+			    		JsonObject jsonObj = null;
+			    		if(el.isJsonObject())
+			    		{
+			    			jsonObj = el.getAsJsonObject();
+			    			SearchResult sr = gson.fromJson(jsonObj, SearchResult.class);
+
+			    			if (sr != null)
+			    			{
+			    				List<GeoPhoto> photos = sr.getPhotos();
+			    				
+			    				for (int m = 0; m < photos.size(); m ++) {
+			    					GeoPhoto photo = photos.get(m);
+			    					// 将该信息写入到mongodb数据库
+			    					DBObject dbo = new BasicDBObject();
+			    					
+			    					dbo.put("photo_id", photo.getPhoto_id());
+			    					
+			    					List<GridFSDBFile> rls = grid.find(dbo);
+			    					if (rls == null || rls.size() == 0)
+			    					{
+			    						try {
+				    						archive(photo, grid);
+				    					} catch (java.lang.NullPointerException e1) {
+				    						// TODO Auto-generated catch block
+				    						e1.printStackTrace();
+				    						FileTool.Dump(photo.toString(), "/home/gir/crawldata/googlephoto/Panoramio-error.txt", "utf-8");
+				    					}
+			    						try {
+				    						Thread.sleep(5000 * ((int) (Math
+				    							.max(1, Math.random() * 3))));
+				    					} catch (final InterruptedException e1) {
+				    						// TODO Auto-generated catch block
+				    						e1.printStackTrace();
+				    					}
+			    					}
+			    				}
+			    			}
+			    		}
+			    	}catch (JsonSyntaxException e) {
+			    		// TODO Auto-generated catch block
+			    		e.printStackTrace();
+			    	}
+			    }
+			 }
+			 
+		} catch (UnknownHostException e2) {
+			// TODO Auto-generated catch block
+			e2.printStackTrace();
+		} catch (MongoException e2) {
+			// TODO Auto-generated catch block
+			e2.printStackTrace();
+		} 
+	     
+	}
+	public static void main(String[] args) throws Exception {
+		int mode = 1; // 1  	抓取摘要
+		              // 2  	抓取实际数据
+		
+		if (mode == 2) 
+			fetchDigist(1,1,1,1);
+		else
+			fetchData("/home/gir/crawldata/googlephoto/Panoramio.txt");
 	}	
 }
