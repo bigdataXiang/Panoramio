@@ -23,7 +23,8 @@ public class SetGrid {
 	}
 	public static void setgrid(String folder,int scale){
 		Vector<String> gridpoi=FileTool.Load(folder, "utf-8");
-		for(int i=0;i<1;i++){//gridpoi.size()
+		long code=0;
+		for(int i=0;i<gridpoi.size();i++){//gridpoi.size()
 			String country=gridpoi.elementAt(i);
 			String[] arr=country.split(",");
 			String Name=arr[0];
@@ -38,7 +39,7 @@ public class SetGrid {
 			//ceil()：将小数部分一律向整数部分进位。 floor()：一律舍去，仅保留整数。   round()：进行四舍五入。
 			int row=(int) Math.ceil(width/scale);
 			int column=(int) Math.ceil(length/scale);
-			System.out.println("共有"+row+"行"+column+"列"+column*row+"个格子");
+			//System.out.println("共有"+row+"行"+column+"列"+column*row+"个格子");
 			
 			double wsurplus=width-(int) Math.floor(width/scale)*scale;
 			double lsurplus=length-(int) Math.floor(length/scale)*scale;
@@ -46,7 +47,7 @@ public class SetGrid {
 			double bottom=0;
 			double left=0;
 			double right=0;
-			long code=0;
+			
 			for(int cc=1;cc<=column;cc++){
 				for(int rr=1;rr<=row;rr++){
 					Grid gd=new Grid();
@@ -151,8 +152,11 @@ public class SetGrid {
 		}
 		
 		for(int g=0;g<grid.size();g++){
-			System.out.println(grid.get(g).code+":"+grid.get(g).top+","+grid.get(g).bottom+","+grid.get(g).left+","+grid.get(g).right);
+			String littlegrid=grid.get(g).code+","+grid.get(g).top+","+grid.get(g).bottom+","+grid.get(g).left+","+grid.get(g).right;
+			System.out.println(littlegrid);
+			FileTool.Dump(littlegrid, "D:/Panomario/littlegrid.txt", "utf-8");
 		}
+		System.out.println("共有"+grid.size()+"个网格");
 	}
 
 }
