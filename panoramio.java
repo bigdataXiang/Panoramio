@@ -331,7 +331,7 @@ public class PanoramioNew {
 	public static void main(String[] args) throws Exception {
 
 		///home/gir/crawldata/googlephoto/littlegrid.txt
-		setBoundary("D:/Panomario/littlegrid.txt");
+		setBoundary("config/littlegrid.txt");
 
 	}
 }
