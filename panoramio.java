@@ -43,13 +43,13 @@ import com.svail.util.FileTool;
 public class Panoramio {
 	// http://www.panoramio.com/map/get_panoramas.php?set=full&from=0&to=500&minx=9.74761962890625&miny=9.381322272728047&maxx=17.98736572265625&maxy=11.832406267156314&size=medium&mapfilter=false
 	// 首先抓取非洲地区的图片
-	public static double stepy = 0.5;
-	public static double stepx = 0.5;
+	public static double stepy = 0.25;
+	public static double stepx = 0.25;
 	public static String digistFileName = "D:\\Panoramio.txt";
 	public static String cellUrlError = "D:\\Panoramio-url.txt";
 	public static String poiError = "D:\\Panoramio-error.txt";
 	public static String logFile = "D:\\Panoramio-log.txt";
-	
+	public static String cellLog = "D:\\Panoramio-cell-log.txt";
 	public static byte[] getImageFromNetByUrl(String strUrl) throws Exception{  
         CloseableHttpClient httpclient = HttpClients.createDefault();  
         HttpGet httpget = new HttpGet(strUrl);  
@@ -131,7 +131,7 @@ public class Panoramio {
 				try {  
 		            // 创建httpget.    
 		            HttpGet httpget = new HttpGet(url);  
-		            System.out.println("executing request " + httpget.getURI());  
+		            // System.out.println("executing request " + httpget.getURI());  
 		            // 执行get请求.    
 		            CloseableHttpResponse response = httpclient.execute(httpget);  
 		            
@@ -148,8 +148,7 @@ public class Panoramio {
 		                    
 		                    if (xml != null)
 		    				{
-		                    	
-		    					// 创建一个JsonParser
+		                    	// 创建一个JsonParser
 		    					JsonParser parser = new JsonParser();
 		    			
 		    					//通过JsonParser对象可以把json格式的字符串解析成一个JsonElement对象
@@ -162,7 +161,7 @@ public class Panoramio {
 		    						{
 		    							jsonObj = el.getAsJsonObject();
 		    							SearchResult sr = gson.fromJson(jsonObj, SearchResult.class);
-
+		    							System.out.println("count: " + sr.getCount() + "  photo: " + sr.getPhotos().size());	
 		    							if (sr != null)
 		    							{
 		    								List<GeoPhoto> photos = sr.getPhotos();
@@ -214,7 +213,27 @@ public class Panoramio {
 		        }  
 			}
 		}
-
+	}
+	
+	public static void digistCells() {
+		Vector<String> ls = FileTool.Load(cellLog, "utf-8");
+		
+		if (ls != null){
+			for (int n = 0; n < ls.size(); n ++ ) {
+				
+				String tks [] = ls.get(n).split(",");
+				
+				if (tks.length == 4) {
+					double top = Double.parseDouble(tks[0]);
+					double bottom = Double.parseDouble(tks[1]);
+					double left = Double.parseDouble(tks[2]);
+					double right = Double.parseDouble(tks[3]);
+					
+					digistDeeper(left, right, top, bottom, 2, false, 10);
+				}
+			}
+		}
+		
 	}
 	public static void digist(double top, double bottom, double left, double right)
 	{
@@ -243,7 +262,7 @@ public class Panoramio {
 					
 					// 创建httpget.    
 		            HttpGet httpget = new HttpGet(url);  
-		            System.out.println("executing request " + httpget.getURI());  
+		            // System.out.println("executing request " + httpget.getURI());  
 		            // 执行get请求.    
 		            CloseableHttpResponse response = httpclient.execute(httpget);  
 		            
@@ -273,7 +292,7 @@ public class Panoramio {
 		    						{
 		    							jsonObj = el.getAsJsonObject();
 		    							SearchResult sr = gson.fromJson(jsonObj, SearchResult.class);
-
+		    							System.out.println("count: " + sr.getCount() + "  photo: " + sr.getPhotos().size());
 		    							if (sr != null)
 		    							{
 		    								List<GeoPhoto> photos = sr.getPhotos();
@@ -281,9 +300,10 @@ public class Panoramio {
 		    								{
 		    									FileTool.Dump(xml, digistFileName, "utf-8");
 		    									
-		    									digistDeeper(x, x + stepx, y, y - stepy, 5, false, 10);
-		    								}
-		    								else if (sr.getCount() > 0 && photos.size() > 0)
+		    									/*  此时不抓取细分网格, 仅记录该1级网格, 已供未来抓取 */
+		    									// digistDeeper(x, x + stepx, y, y - stepy, 5, false, 10);
+		    									FileTool.Dump("" + x + "," + (x + stepx) + "," + y + "," + (y -stepy) , cellLog, "utf-8");
+		    								}else if (sr.getCount() > 0 && photos.size() > 0)
 		    									FileTool.Dump(xml, digistFileName, "utf-8");
 		    							}
 		    						}
@@ -408,7 +428,14 @@ public class Panoramio {
 		Vector<String> boundary = FileTool.Load(folder, "utf-8");
 		Vector<String> visits = FileTool.Load(logFile, "utf-8");
 		Set<Integer> vis = new TreeSet<Integer>();
+		boolean server_one = true;
+		int start = 0;
+		int end = boundary.size() / 2;
 		
+		if (!server_one) {
+			start = end;
+			end = boundary.size();
+		}
 		if (visits != null)
 		{
 			for (int i = 0; i < visits.size(); i ++) {
@@ -417,7 +444,7 @@ public class Panoramio {
 			}
 		}
 		
-		for (int i = 0; i < boundary.size(); i++) {
+		for (int i = start; i < end; i++) {
 			String poi = boundary.elementAt(i);
 			String[] grid = poi.split(",");
 			int v = Integer.parseInt(grid[0]);
