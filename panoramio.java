@@ -1,5 +1,6 @@
 package com.svail.crawl.panoramio;
 
+
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -43,16 +44,29 @@ import com.mongodb.gridfs.GridFSDBFile;
 import com.mongodb.gridfs.GridFSFile;
 import com.svail.util.FileTool;
 
-public class Panoramio {
+public class Panoramio_mode_2{
 	// http://www.panoramio.com/map/get_panoramas.php?set=full&from=0&to=500&minx=9.74761962890625&miny=9.381322272728047&maxx=17.98736572265625&maxy=11.832406267156314&size=medium&mapfilter=false
 	// 首先抓取非洲地区的图片
 	public static double stepy = 0.25;
 	public static double stepx = 0.25;
+	
+	//将获得的文摘数据存入digistFileName对应的文件中
 	public static String digistFileName = "/home/gir/crawldata/googlephoto/0331/Panoramio.txt";
+	
+	//将获取文摘失败的链接存入cellUrlError对应的文件中
 	public static String cellUrlError = "/home/gir/crawldata/googlephoto/0331/Panoramio-url.txt";
+	
+	//如果图片抓取失败，则将图片的文摘放入poiError.txt文件中
 	public static String poiError = "/home/gir/crawldata/googlephoto/0331/Panoramio-error.txt";
+	
+	//将已经被抓取过的网格的编码写入logFile中
 	public static String logFile = "/home/gir/crawldata/googlephoto/0331/Panoramio-log.txt";
+	
+	//cellLog记录更深一级网格的经纬度范围，方便下次的深一级别的抓取
 	public static String cellLog = "/home/gir/crawldata/googlephoto/0331/Panoramio-cell-log.txt";
+	
+	//将已经抓取的id写入文件中，避免突然中断后再次抓取
+	public static String finishedid="/home/gir/crawldata/googlephoto/0331/finished-id.txt";
 	public static byte[] getImageFromNetByUrl(String strUrl) throws Exception{  
         CloseableHttpClient httpclient = HttpClients.createDefault();  
         HttpGet httpget = new HttpGet(strUrl);  
@@ -82,9 +96,11 @@ public class Panoramio {
         inStream.close();  
         return outStream.toByteArray();  
     }  
-	public static void archive(GeoPhoto photo, GridFS grid) throws Exception {   
+	public static void archive(GeoPhoto photo, GridFS grid) throws Exception { 
+		//全图
         byte[] bs = getImageFromNetByUrl("http://static.panoramio.com.storage.googleapis.com/photos/large/" + photo.getPhoto_id() + ".jpg");
         
+        //缩略图
         byte[] square = getImageFromNetByUrl("http://static.panoramio.com.storage.googleapis.com/photos/square/" + photo.getPhoto_id() + ".jpg");
         	
         GridFSFile document = grid.createFile(bs);   
@@ -303,8 +319,10 @@ public class Panoramio {
 		    								{
 		    									FileTool.Dump(xml, digistFileName, "utf-8");
 		    									
-		    									/*  此时不抓取细分网格, 仅记录该1级网格, 已供未来抓取 */
+		    									/*  此时不抓取细分网格, 仅记录该1级网格, 以供未来抓取 */
 		    									// digistDeeper(x, x + stepx, y, y - stepy, 5, false, 10);
+		    									
+		    									//cellLog记录更深一级网格的经纬度范围，方便下次的深一级别的抓取
 		    									FileTool.Dump("" + x + "," + (x + stepx) + "," + y + "," + (y -stepy) , cellLog, "utf-8");
 		    								}
 		    								else if (sr.getCount() > 0 && photos.size() > 0)
@@ -346,7 +364,7 @@ public class Panoramio {
 		}
 	}
 	
-	public static void fetchData(String digist) {
+	public static void fetchData(String digist) {//导入文摘数据
 		try {
 			Mongo mongo = new Mongo("192.168.6.9", 27017);
 			DB db = mongo.getDB("geophoto");  // 数据库名称
@@ -354,6 +372,16 @@ public class Panoramio {
 			Gson gson = new Gson();
 			
 			Vector<String> ls = FileTool.Load(digist, "utf-8");
+			Vector<String> visits = FileTool.Load(finishedid, "utf-8");
+			Set<Integer> vis = new TreeSet<Integer>();
+			
+			// 假如finished-id.txt文件中有数据，将其加到vis中去,该文件存储了图片的id
+			if (visits != null) {
+				for (int i = 0; i < visits.size(); i++) {
+					int v = Integer.parseInt(visits.get(i));
+					vis.add(v);
+				}
+			}
 			
 			if (ls != null)
 			{
@@ -387,9 +415,16 @@ public class Panoramio {
 			    						try {
 			    							SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");//设置日期格式
 			    							
-			    							System.out.println("@by " + df.format(new Date()) + "   [" + n + "-" + m + "]");
+			    							//假设id并没有在已经访问过的id名单内，则执行图片抓取程序，否则不执行
+			    							if(!vis.contains(photo.getPhoto_id())){
+			    								System.out.println("@by " + df.format(new Date()) + "   [" + n + "-" + m + "]");
+				    							
+					    						archive(photo, grid);
+					    						//将已经抓取的id写入文件中，避免突然中断后再次抓取
+						    					FileTool.Dump(photo.getPhoto_id(), finishedid, "utf-8");
+			    							}
 			    							
-				    						archive(photo, grid);
+					    					
 				    					} catch (java.lang.NullPointerException e1) {
 				    						// TODO Auto-generated catch block
 				    						e1.printStackTrace();
@@ -432,6 +467,8 @@ public class Panoramio {
 		Vector<String> boundary = FileTool.Load(folder, "utf-8");
 		Vector<String> visits = FileTool.Load(logFile, "utf-8");
 		Set<Integer> vis = new TreeSet<Integer>();
+		
+		//假如logFile文件中有已经访问过的网格，将其加到vis中去
 		if (visits != null)
 		{
 			for (int i = 0; i < visits.size(); i ++) {
@@ -455,6 +492,8 @@ public class Panoramio {
 			String poi = boundary.elementAt(i);
 			String[] grid = poi.split(",");
 			int v = Integer.parseInt(grid[0]);
+			
+			//如果vis中没有包含该网格，则在list中加入i
 			if (!vis.contains(v))
 			{
 				list.add(i);
@@ -462,7 +501,7 @@ public class Panoramio {
 			}
         }
 		
-		Collections.shuffle(list);  
+		Collections.shuffle(list);  //shuffle（） 是 Collections 中的静态方法 ，它用于将一个 list 集合中的元素顺序进行打乱 ，类似于洗牌的过程
         Iterator<Integer> ite = list.iterator();  
         
         while (ite.hasNext()) {
@@ -478,19 +517,21 @@ public class Panoramio {
 			double Right = Double.parseDouble(grid[4]);
 			
 			digist(Top, Bottom, Left, Right);
+			//将已经被抓取过的网格的编码计入logFile中
 			FileTool.Dump(grid[0], logFile, "UTF-8");
         }
 
 	}
 	public static void main(String[] args) throws Exception {
-		int mode = 2; // 1  	抓取摘要
+		int mode = 1; // 1  	抓取摘要
 		              // 2  	抓取实际数据
 		
 		if (mode == 1) 
 		{
 			setBoundary("config/littlegrid.txt");
+		}else if(mode == 2){
+			fetchData("/home/gir/crawldata/googlephoto/0331/Panoramio-digist.txt");
 		}
-		else
-			fetchData("/home/gir/crawldata/googlephoto/0331/Panoramio - 1.txt");
+			
 	}	
 }
