@@ -1,8 +1,11 @@
 package com.svail.crawl.panoramio;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -45,11 +48,11 @@ public class Panoramio {
 	// 首先抓取非洲地区的图片
 	public static double stepy = 0.25;
 	public static double stepx = 0.25;
-	public static String digistFileName = "D:\\Panoramio.txt";
-	public static String cellUrlError = "D:\\Panoramio-url.txt";
-	public static String poiError = "D:\\Panoramio-error.txt";
-	public static String logFile = "D:\\Panoramio-log.txt";
-	public static String cellLog = "D:\\Panoramio-cell-log.txt";
+	public static String digistFileName = "/home/gir/crawldata/googlephoto/0331/Panoramio.txt";
+	public static String cellUrlError = "/home/gir/crawldata/googlephoto/0331/Panoramio-url.txt";
+	public static String poiError = "/home/gir/crawldata/googlephoto/0331/Panoramio-error.txt";
+	public static String logFile = "/home/gir/crawldata/googlephoto/0331/Panoramio-log.txt";
+	public static String cellLog = "/home/gir/crawldata/googlephoto/0331/Panoramio-cell-log.txt";
 	public static byte[] getImageFromNetByUrl(String strUrl) throws Exception{  
         CloseableHttpClient httpclient = HttpClients.createDefault();  
         HttpGet httpget = new HttpGet(strUrl);  
@@ -303,7 +306,8 @@ public class Panoramio {
 		    									/*  此时不抓取细分网格, 仅记录该1级网格, 已供未来抓取 */
 		    									// digistDeeper(x, x + stepx, y, y - stepy, 5, false, 10);
 		    									FileTool.Dump("" + x + "," + (x + stepx) + "," + y + "," + (y -stepy) , cellLog, "utf-8");
-		    								}else if (sr.getCount() > 0 && photos.size() > 0)
+		    								}
+		    								else if (sr.getCount() > 0 && photos.size() > 0)
 		    									FileTool.Dump(xml, digistFileName, "utf-8");
 		    							}
 		    						}
@@ -428,14 +432,6 @@ public class Panoramio {
 		Vector<String> boundary = FileTool.Load(folder, "utf-8");
 		Vector<String> visits = FileTool.Load(logFile, "utf-8");
 		Set<Integer> vis = new TreeSet<Integer>();
-		boolean server_one = true;
-		int start = 0;
-		int end = boundary.size() / 2;
-		
-		if (!server_one) {
-			start = end;
-			end = boundary.size();
-		}
 		if (visits != null)
 		{
 			for (int i = 0; i < visits.size(); i ++) {
@@ -444,39 +440,57 @@ public class Panoramio {
 			}
 		}
 		
+		boolean server_one = true;
+		int start = 0;
+		int end = boundary.size() / 2;
+		
+		if (!server_one) {
+			start = end;
+			end = boundary.size();
+		}
+		
+		List<Integer> list = new ArrayList<Integer>();
+        
 		for (int i = start; i < end; i++) {
 			String poi = boundary.elementAt(i);
 			String[] grid = poi.split(",");
 			int v = Integer.parseInt(grid[0]);
 			if (!vis.contains(v))
-				map.put(grid[0], grid[1] + "," + grid[2] + "," + grid[3] + "," + grid[4]);
+			{
+				list.add(i);
+				// map.put(grid[0], grid[1] + "," + grid[2] + "," + grid[3] + "," + grid[4]);
+			}
         }
 		
-        for (Entry<String, String> entry: map.entrySet()) {
-        	String value = entry.getValue();
-            String[] grid = value.split(",");
+		Collections.shuffle(list);  
+        Iterator<Integer> ite = list.iterator();  
+        
+        while (ite.hasNext()) {
+        	
+        	int v = ite.next();
+            System.out.println("0级网格抓取: " +  v);  
+            String poi = boundary.elementAt(v);
+			String[] grid = poi.split(",");
             
-            System.out.println("0级网格抓取: " +  entry.getKey());  
-            
-            double Top = Double.parseDouble(grid[0]);
-			double Bottom = Double.parseDouble(grid[1]);
-			double Left = Double.parseDouble(grid[2]);
-			double Right = Double.parseDouble(grid[3]);
+            double Top = Double.parseDouble(grid[1]);
+			double Bottom = Double.parseDouble(grid[2]);
+			double Left = Double.parseDouble(grid[3]);
+			double Right = Double.parseDouble(grid[4]);
 			
 			digist(Top, Bottom, Left, Right);
-			FileTool.Dump(entry.getKey(), logFile, "UTF-8");
+			FileTool.Dump(grid[0], logFile, "UTF-8");
         }
 
 	}
 	public static void main(String[] args) throws Exception {
-		int mode = 1; // 1  	抓取摘要
+		int mode = 2; // 1  	抓取摘要
 		              // 2  	抓取实际数据
 		
 		if (mode == 1) 
 		{
-			setBoundary("config/littleGrid.txt");
+			setBoundary("config/littlegrid.txt");
 		}
 		else
-			fetchData(digistFileName);
+			fetchData("/home/gir/crawldata/googlephoto/0331/Panoramio - 1.txt");
 	}	
 }
